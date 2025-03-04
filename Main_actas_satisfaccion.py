@@ -121,10 +121,20 @@ for index, row in df.iterrows():
 
         # Reemplazar los marcadores de posición con los valores correspondientes de la fila del Excel
         for para in doc.paragraphs:
-            replace_text_keep_format(para, "@NOMBRE@", row["Nombre"])
-            replace_text_keep_format(para, "@CEDULA@", str(row["Cedula"]))
-            replace_text_keep_format(para, "@CALIDAD@", row["Calidad"])
-            replace_text_keep_format(para, "@MUNICIPIO@", row["Municipio"])
+            #Datos usuarios
+            replace_text_keep_format(para, "@NOMBRE@", row["NOMBRE"])
+            replace_text_keep_format(para, "@CEDULA@", str(row["CEDULA"]))
+            replace_text_keep_format(para, "@CALIDAD@", row["CALIDAD"])
+            #Ubicacion
+            replace_text_keep_format(para, "@MUNICIPIO@", row["MUNICIPIO"])
+            replace_text_keep_format(para, "@VEREDA@", row["VEREDA"])
+            replace_text_keep_format(para, "@DIRECCION@", row["DIRECCION"])
+            replace_text_keep_format(para, "@LATITUD@", row["LATITUD"])
+            replace_text_keep_format(para, "@LONGITUD@", row["LONGITUD"])
+            #Comentarios
+            replace_text_keep_format(para, "@COMENTARIO_EDEQ@", row["COMENTARIO_EDEQ"])
+            replace_text_keep_format(para, "@COMENTARIO_USUARIO@", row["COMENTARIO_USUARIO"])
+            
 
         # Cargar e insertar imágenes de firmas si existen
         autorizacion_path = os.path.join(firmas_folder, row["Autorizacion"])
@@ -191,5 +201,5 @@ except Exception as e:
 df_resultados = pd.DataFrame(resultados)
 df_resultados.to_excel(output_excel_path, index=False)
 
-print("\n✅ Proceso completado. Se generaron los documentos y el reporte en Excel.")
+print(f"\n✅ Proceso completado. Se generaron los documentos y el reporte en Excel de {cuenta_pdf} actas.")
 
