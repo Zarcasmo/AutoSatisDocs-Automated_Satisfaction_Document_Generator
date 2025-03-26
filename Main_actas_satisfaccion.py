@@ -83,10 +83,21 @@ def print_progress_bar(iteration, total, length=50, start_time=None):
     sys.stdout.flush()
 
 # Función para reemplazar texto manteniendo formato
-def replace_text_keep_format(paragraph, old_text, new_text):
-    if old_text in paragraph.text:
-        for run in paragraph.runs:
-            run.text = run.text.replace(old_text, new_text)
+def replace_text_keep_format(doc, old_text, new_text):
+    # Buscar en párrafos normales
+    for para in doc.paragraphs:
+        if old_text in para.text:
+            for run in para.runs:
+                run.text = run.text.replace(old_text, new_text)
+    
+    # Buscar en tablas
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                if old_text in cell.text:
+                    for para in cell.paragraphs:
+                        for run in para.runs:
+                            run.text = run.text.replace(old_text, new_text)
 
 # Función para insertar imágenes en el documento Word reemplazando texto específico
 def replace_text_with_image(doc, placeholder, image_path, width=tam_imagen):
@@ -119,21 +130,21 @@ for index, row in df.iterrows():
         # Crear un nuevo documento basado en la plantilla
         doc = Document(template_path)
 
-        # Reemplazar los marcadores de posición con los valores correspondientes de la fila del Excel
-        for para in doc.paragraphs:
-            #Datos usuarios
-            replace_text_keep_format(para, "@NOMBRE@", row["NOMBRE"])
-            replace_text_keep_format(para, "@CEDULA@", str(row["CEDULA"]))
-            replace_text_keep_format(para, "@CALIDAD@", row["CALIDAD"])
-            #Ubicacion
-            replace_text_keep_format(para, "@MUNICIPIO@", row["MUNICIPIO"])
-            replace_text_keep_format(para, "@VEREDA@", row["VEREDA"])
-            replace_text_keep_format(para, "@DIRECCION@", row["DIRECCION"])
-            replace_text_keep_format(para, "@LATITUD@", row["LATITUD"])
-            replace_text_keep_format(para, "@LONGITUD@", row["LONGITUD"])
-            #Comentarios
-            replace_text_keep_format(para, "@COMENTARIO_EDEQ@", row["COMENTARIO_EDEQ"])
-            replace_text_keep_format(para, "@COMENTARIO_USUARIO@", row["COMENTARIO_USUARIO"])
+        #Datos usuarios
+        replace_text_keep_format(doc, "@NOMBRE@", row["NOMBRE"])
+        replace_text_keep_format(doc, "@CEDULA@", str(row["CEDULA"]))
+        replace_text_keep_format(doc, "@CALIDAD@", row["CALIDAD"])
+        #Ubicacion
+        replace_text_keep_format(doc, "@MUNICIPIO@", row["MUNICIPIO"])
+        replace_text_keep_format(doc, "@VEREDA@", row["VEREDA"])
+        replace_text_keep_format(doc, "@DIRECCION@", row["DIRECCION"])
+        replace_text_keep_format(doc, "@LATITUD@", str(row["LATITUD"]))
+        replace_text_keep_format(doc, "@LONGITUD@", str(row["LONGITUD"]))
+        #Comentarios
+        replace_text_keep_format(doc, "@COMENTARIO_EDEQ@", row["COMENTARIO_EDEQ"])
+        replace_text_keep_format(doc, "@COMENTARIO_USUARIO@", row["COMENTARIO_USUARIO"])
+        #Fecha y OT
+        replace_text_keep_format(doc, "@OT@", row["OT"])
             
 
         # Cargar e insertar imágenes de firmas si existen
