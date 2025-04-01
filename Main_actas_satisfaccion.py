@@ -39,14 +39,14 @@ borrar_docx = True
 
 # Cargar el archivo Excel con los datos de entrada
 # Este archivo debe contener las columnas necesarias como "Nombre", "Cedula", "Calidad", "Municipio", etc.
-df = pd.read_excel("datos.xlsx")
+df = pd.read_excel("Intervencion_forestal_guaduales_SHP.xlsx")
 df = df.fillna('')
 
 #Información de las firmas de los lideres de grupos
 df_lideres = pd.read_excel("Firmas_lideres.xlsx")
 
 #Merge para obtener la ruta de las firmas de los lideres
-df = df.merge(df_lideres[['NOMBRE_LIDER', 'FIRMA_LIDER']], left_on='LIDER', right_on='NOMBRE_LIDER', how='left')
+df = df.merge(df_lideres[['NOMBRE_LIDER', 'FIRMA_LIDER']], left_on='jefeCuadrilla', right_on='NOMBRE_LIDER', how='left')
 # Eliminar la columna duplicada si no la necesitas
 df.drop(columns=['NOMBRE_LIDER'], inplace=True)
 
@@ -55,7 +55,7 @@ df.drop(columns=['NOMBRE_LIDER'], inplace=True)
 template_path = "formato_socializa.docx"
 output_folder = "output_pdfs" # Carpeta donde se guardarán los archivos generados
 firmas_folder = "Firmas"  # Carpeta donde están las imágenes de firmas
-firmas_lideres_folder = "Firmas\Firmas lideres grupos"  # Carpeta donde están las imágenes de firmas de los lideres
+firmas_lideres_folder = "Firmas lideres grupos"  # Carpeta donde están las imágenes de firmas de los lideres
 os.makedirs(output_folder, exist_ok=True) # Crear la carpeta de salida si no existe
 
 # Archivo Excel de salida con la consolidación de resultados
@@ -150,6 +150,10 @@ def replace_text_with_image(doc, placeholder, image_path, width=tam_imagen):
 # Listas para almacenar rutas de archivos generados
 word_files = []
 pdf_files = []
+cuenta_word = 0
+total = len(df)-1
+start_time = time.time()  # Captura el tiempo de inicio
+print("Proceso de generación de Words")
 
 # Procesar cada fila del Excel
 for index, row in df.iterrows():
@@ -163,34 +167,37 @@ for index, row in df.iterrows():
         doc = Document(template_path)
 
         #Datos usuarios
-        replace_text_keep_format(doc, "@NOMBRE@", row["NOMBRE"])
-        replace_text_keep_format(doc, "@CEDULA@", str(row["CEDULA"]))
-        replace_text_keep_format(doc, "@CALIDAD@", row["CALIDAD"])
+        replace_text_keep_format(doc, "@NOMBRE@", row["nombreUsuario"])
+        replace_text_keep_format(doc, "@CEDULA@", str(row["cedulaUsuario"]))
+        replace_text_keep_format(doc, "@CALIDAD@", row["calidadFirma"])
         #Ubicacion
-        replace_text_keep_format(doc, "@MUNICIPIO@", row["MUNICIPIO"])
-        replace_text_keep_format(doc, "@VEREDA@", row["VEREDA"])
-        replace_text_keep_format(doc, "@DIRECCION@", row["DIRECCION"])
-        replace_text_keep_format(doc, "@LATITUD@", str(row["LATITUD"]))
-        replace_text_keep_format(doc, "@LONGITUD@", str(row["LONGITUD"]))
+        if row["MUNICIPIO_FINCA"] != '':
+            replace_text_keep_format(doc, "@MUNICIPIO@", str(row["MUNICIPIO_FINCA"]))
+        else:
+            replace_text_keep_format(doc, "@MUNICIPIO@", str(row["Municipio_manual"]))
+        replace_text_keep_format(doc, "@VEREDA@", row["Vereda"])
+        replace_text_keep_format(doc, "@DIRECCION@", row["Finca_Direccion"])
+        replace_text_keep_format(doc, "@LATITUD@", str(row["COORDENADAS_FINCA"].split(',')[0]))
+        replace_text_keep_format(doc, "@LONGITUD@", str(row["COORDENADAS_FINCA"].split(',')[1]))
         #Comentarios
-        replace_text_keep_format(doc, "@COMENTARIO_EDEQ@", row["COMENTARIO_EDEQ"])
-        replace_text_keep_format(doc, "@COMENTARIO_USUARIO@", row["COMENTARIO_USUARIO"])
+        replace_text_keep_format(doc, "@COMENTARIO_EDEQ@", row["Observacion"])
+        replace_text_keep_format(doc, "@COMENTARIO_USUARIO@", row["observacionUsuario"])
         #Fecha
-        replace_text_keep_format(doc, "@YEAR@", str(row["Fecha_acci"].year))
-        replace_text_keep_format(doc, "@MONTH@", str(row["Fecha_acci"].month))
-        replace_text_keep_format(doc, "@DAY@", str(row["Fecha_acci"].day))
+        replace_text_keep_format(doc, "@YEAR@", str(row["Fecha_accion"].year))
+        replace_text_keep_format(doc, "@MONTH@", str(row["Fecha_accion"].month))
+        replace_text_keep_format(doc, "@DAY@", str(row["Fecha_accion"].day))
         #OT/Evento
-        if row["OT"] != '':
-            replace_text_keep_format(doc, "@OT/EVENTO@", str(int(row["OT"])))
+        if row["OTMX"] != '':
+            replace_text_keep_format(doc, "@OT/EVENTO@", str(int(row["OTMX"])))
         else:
             replace_text_keep_format(doc, "@OT/EVENTO@", str(row["Evento_SP7"]))
         #Cantidades
-        replace_text_keep_format(doc, "@PODA@", str(row["PODAS"]))
-        replace_text_keep_format(doc, "@RETIROS@", str(row["RETIROS"]))
-        replace_text_keep_format(doc, "@GUADUA@", str(row["GUADUAS"]))
-        replace_text_keep_format(doc, "@ROCERIA@", str(row["ROCERIA"]))
+        replace_text_keep_format(doc, "@PODA@", str(row["cantidadPodasFirmadas"]))
+        replace_text_keep_format(doc, "@RETIROS@", str(row["cantidadRetirosFirmados"]))
+        replace_text_keep_format(doc, "@GUADUA@", str(row["cantidadRenuevosFirmados"]))
+        replace_text_keep_format(doc, "@ROCERIA@", str(row["metrosRoceriaFirmados"]))
         #Residuos
-        if row["disposicio"]=='A cargo de EDEQ':
+        if row["disposicionResiduos"]=='A cargo de EDEQ':
             replace_text_keep_format(doc, "@Resi_EDEQ@", "X")
             replace_text_keep_format(doc, "@Resi_user@", "")
         else:
@@ -198,8 +205,8 @@ for index, row in df.iterrows():
             replace_text_keep_format(doc, "@Resi_user@", "X")
 
         # Cargar e insertar imágenes de firmas si existen
-        autorizacion_path = os.path.join(firmas_folder, row["Autorizacion"])
-        satisfaccion_path = os.path.join(firmas_folder, row["Satisfaccion"])
+        autorizacion_path = os.path.join(firmas_folder, row["FirmaAutorizacion"])
+        satisfaccion_path = os.path.join(firmas_folder, row["FirmaSatisfaccion"])
         firma_lider_path = os.path.join(firmas_lideres_folder, row["FIRMA_LIDER"])
 
         if os.path.exists(autorizacion_path):
@@ -215,7 +222,7 @@ for index, row in df.iterrows():
             error_msg += f"Falta imagen de satisfacción: {satisfaccion_path}. "
          
         if os.path.exists(firma_lider_path):
-            replace_text_with_image(doc, "@FIRMA_LIDER@", firma_lider_path)
+            replace_text_with_image(doc, "@FIRMA_LIDER@", firma_lider_path, width=2)
         else:
             status = "Fallo"
             error_msg += f"Falta imagen de satisfacción: {firma_lider_path}. "
@@ -224,6 +231,10 @@ for index, row in df.iterrows():
         doc.save(word_output_path)
         word_files.append(word_output_path)
         pdf_files.append(pdf_output_path)
+        
+        #Barra de progreso
+        print_progress_bar(cuenta_word, total, start_time=start_time)
+        cuenta_word += 1
 
     except Exception as e:
         status = "Fallo"
@@ -243,7 +254,7 @@ df_resultados.to_excel(output_excel_path, index=False)
 total = len(word_files)-1
 start_time = time.time()  # Captura el tiempo de inicio
 cuenta_pdf = 0
-
+print("\nProceso de generación de PDFs")
 try:
     word_app = comtypes.client.CreateObject('Word.Application')
     word_app.Visible = False  
