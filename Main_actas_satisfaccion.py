@@ -188,9 +188,9 @@ for index, row in df.iterrows():
         replace_text_keep_format(doc, "@DAY@", str(row["Fecha_accion"].day))
         #OT/Evento
         if row["OTMX"] != '':
-            replace_text_keep_format(doc, "@OT/EVENTO@", str(int(row["OTMX"])))
+            replace_text_keep_format(doc, "@OT/EVENTO@", "OT N°" + str(int(row["OTMX"])))
         else:
-            replace_text_keep_format(doc, "@OT/EVENTO@", str(row["Evento_SP7"]))
+            replace_text_keep_format(doc, "@OT/EVENTO@", "Evento N°" + str(int(row["Evento_SP7"])))
         #Cantidades
         replace_text_keep_format(doc, "@PODA@", str(row["cantidadPodasFirmadas"]))
         replace_text_keep_format(doc, "@RETIROS@", str(row["cantidadRetirosFirmados"]))
