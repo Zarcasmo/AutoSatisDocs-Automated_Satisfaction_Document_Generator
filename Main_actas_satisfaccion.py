@@ -34,14 +34,28 @@ init(autoreset=True)
 #Tamaño que tendran las firmas
 tam_imagen=1
 
+#Guardar documento .docx
+borrar_docx = True
+
 # Cargar el archivo Excel con los datos de entrada
 # Este archivo debe contener las columnas necesarias como "Nombre", "Cedula", "Calidad", "Municipio", etc.
 df = pd.read_excel("datos.xlsx")
+df = df.fillna('')
+
+#Información de las firmas de los lideres de grupos
+df_lideres = pd.read_excel("Firmas_lideres.xlsx")
+
+#Merge para obtener la ruta de las firmas de los lideres
+df = df.merge(df_lideres[['NOMBRE_LIDER', 'FIRMA_LIDER']], left_on='LIDER', right_on='NOMBRE_LIDER', how='left')
+# Eliminar la columna duplicada si no la necesitas
+df.drop(columns=['NOMBRE_LIDER'], inplace=True)
+
 
 # Ruta de la plantilla Word que se usará como base para generar los documentos
 template_path = "formato_socializa.docx"
 output_folder = "output_pdfs" # Carpeta donde se guardarán los archivos generados
 firmas_folder = "Firmas"  # Carpeta donde están las imágenes de firmas
+firmas_lideres_folder = "Firmas\Firmas lideres grupos"  # Carpeta donde están las imágenes de firmas de los lideres
 os.makedirs(output_folder, exist_ok=True) # Crear la carpeta de salida si no existe
 
 # Archivo Excel de salida con la consolidación de resultados
@@ -82,22 +96,40 @@ def print_progress_bar(iteration, total, length=50, start_time=None):
     
     sys.stdout.flush()
 
-# Función para reemplazar texto manteniendo formato
+# Función mejorada para reemplazar texto manteniendo formato
 def replace_text_keep_format(doc, old_text, new_text):
-    # Buscar en párrafos normales
-    for para in doc.paragraphs:
-        if old_text in para.text:
-            for run in para.runs:
-                run.text = run.text.replace(old_text, new_text)
+    """
+    Reemplaza texto específico manteniendo el formato original y el resto del contenido.
     
-    # Buscar en tablas
-    for table in doc.tables:
+    :param doc: Documento de Word (objeto Document)
+    :param old_text: Texto a reemplazar
+    :param new_text: Texto de reemplazo
+    """
+    # Reemplazar en párrafos
+    for paragraph in doc.paragraphs:
+        if old_text in paragraph.text:
+            for run in paragraph.runs:
+                if old_text in run.text:
+                    run.text = run.text.replace(old_text, str(new_text))
+
+    # Reemplazar en tablas de manera recursiva
+    def replace_in_table(table):
         for row in table.rows:
             for cell in row.cells:
-                if old_text in cell.text:
-                    for para in cell.paragraphs:
-                        for run in para.runs:
-                            run.text = run.text.replace(old_text, new_text)
+                # Reemplazar en párrafos de la celda
+                for paragraph in cell.paragraphs:
+                    for run in paragraph.runs:
+                        if old_text in run.text:
+                            run.text = run.text.replace(old_text, str(new_text))
+                
+                # Reemplazar en subtablas anidadas si existen
+                nested_tables = cell.tables
+                for nested_table in nested_tables:
+                    replace_in_table(nested_table)
+
+    # Buscar y reemplazar en todas las tablas del documento
+    for table in doc.tables:
+        replace_in_table(table)
 
 # Función para insertar imágenes en el documento Word reemplazando texto específico
 def replace_text_with_image(doc, placeholder, image_path, width=tam_imagen):
@@ -143,13 +175,32 @@ for index, row in df.iterrows():
         #Comentarios
         replace_text_keep_format(doc, "@COMENTARIO_EDEQ@", row["COMENTARIO_EDEQ"])
         replace_text_keep_format(doc, "@COMENTARIO_USUARIO@", row["COMENTARIO_USUARIO"])
-        #Fecha y OT
-        replace_text_keep_format(doc, "@OT@", row["OT"])
-            
+        #Fecha
+        replace_text_keep_format(doc, "@YEAR@", str(row["Fecha_acci"].year))
+        replace_text_keep_format(doc, "@MONTH@", str(row["Fecha_acci"].month))
+        replace_text_keep_format(doc, "@DAY@", str(row["Fecha_acci"].day))
+        #OT/Evento
+        if row["OT"] != '':
+            replace_text_keep_format(doc, "@OT/EVENTO@", str(int(row["OT"])))
+        else:
+            replace_text_keep_format(doc, "@OT/EVENTO@", str(row["Evento_SP7"]))
+        #Cantidades
+        replace_text_keep_format(doc, "@PODA@", str(row["PODAS"]))
+        replace_text_keep_format(doc, "@RETIROS@", str(row["RETIROS"]))
+        replace_text_keep_format(doc, "@GUADUA@", str(row["GUADUAS"]))
+        replace_text_keep_format(doc, "@ROCERIA@", str(row["ROCERIA"]))
+        #Residuos
+        if row["disposicio"]=='A cargo de EDEQ':
+            replace_text_keep_format(doc, "@Resi_EDEQ@", "X")
+            replace_text_keep_format(doc, "@Resi_user@", "")
+        else:
+            replace_text_keep_format(doc, "@Resi_EDEQ@", "")
+            replace_text_keep_format(doc, "@Resi_user@", "X")
 
         # Cargar e insertar imágenes de firmas si existen
         autorizacion_path = os.path.join(firmas_folder, row["Autorizacion"])
         satisfaccion_path = os.path.join(firmas_folder, row["Satisfaccion"])
+        firma_lider_path = os.path.join(firmas_lideres_folder, row["FIRMA_LIDER"])
 
         if os.path.exists(autorizacion_path):
             replace_text_with_image(doc, "@FIRMA_AUTORIZA@", autorizacion_path)
@@ -162,6 +213,12 @@ for index, row in df.iterrows():
         else:
             status = "Fallo"
             error_msg += f"Falta imagen de satisfacción: {satisfaccion_path}. "
+         
+        if os.path.exists(firma_lider_path):
+            replace_text_with_image(doc, "@FIRMA_LIDER@", firma_lider_path)
+        else:
+            status = "Fallo"
+            error_msg += f"Falta imagen de satisfacción: {firma_lider_path}. "
 
         # Guardar documento Word
         doc.save(word_output_path)
@@ -200,7 +257,8 @@ try:
             resultados[cuenta_pdf]["Estado"] = "Fallo"
             resultados[cuenta_pdf]["Errores"] += f"Error en conversión a PDF: {str(e)}. "
         
-        os.remove(word_path)
+        if borrar_docx:
+            os.remove(word_path)
         print_progress_bar(cuenta_pdf, total, start_time=start_time)
         cuenta_pdf += 1
 
